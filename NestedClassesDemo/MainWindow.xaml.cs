@@ -80,38 +80,41 @@ public class ObservableBindableCollection<T> : ObservableCollection<T>, INotifyP
                     HashSet<object> visited = new();
                     foreach (var item in e.NewItems.OfType<INotifyPropertyChanged>())
                     {
-                        localEnsureSubscribeItem(item, visited);
-                        void localEnsureSubscribeItem(INotifyPropertyChanged item, HashSet<object> visited)
+                        foreach (var bindableInstance in item.BindableDescendantsAndSelf())
                         {
-                            if (visited.Contains(item)) return;  // e.g. a property that points to `this`
-                            visited.Add(item);
-                            item.PropertyChanged += OnItemPropertyChanged;
-                            foreach(
-                                var pi in 
-                                item
-                                .GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                                .Where(_ =>
-                                    typeof(INotifyPropertyChanged).IsAssignableFrom(_.PropertyType) &&
-                                    _.CanRead &&
-                                    _.GetMethod?.IsStatic != true &&
-                                    _.GetIndexParameters().Length == 0))
+                            if(visited.Add(bindableInstance))
                             {
-                                if (pi.GetValue(item) is INotifyPropertyChanged childINPC)
-                                {
-                                    localEnsureSubscribeItem(childINPC, visited);
-                                }
+                                bindableInstance.PropertyChanged -= OnItemPropertyChanged;
+                                bindableInstance.PropertyChanged += OnItemPropertyChanged;
+                            }
+                            else
+                            {   /* G T K */
+                                // e.g. A property that returns 'this'
                             }
                         }
                     }
                 }
                 break;
             case NotifyCollectionChangedAction.Remove:
+                if (e.OldItems != null)
+                {
+                    HashSet<object> visited = new();
+                    foreach (var item in e.OldItems.OfType<INotifyPropertyChanged>())
+                    {
+                        foreach (var bindableInstance in item.BindableDescendantsAndSelf())
+                        {
+                            if (visited.Add(bindableInstance))
+                            {
+                                bindableInstance.PropertyChanged -= OnItemPropertyChanged;
+                            }
+                            else
+                            {   /* G T K */
+                                // e.g. A property that returns 'this'
+                            }
+                        }
+                    }
+                }
                 break;
-        }
-        void localUnsubscribeItem(INotifyPropertyChanged item)
-        {
-            item.PropertyChanged -= OnItemPropertyChanged;
-            item.PropertyChanged += OnItemPropertyChanged;
         }
     }
 
@@ -156,21 +159,26 @@ public class ObservableBindablePropertyChangedEventArgs : PropertyChangedEventAr
 
 public static class Extensions
 {
-    public static IEnumerable<PropertyInfo> GetINotifyPropertyChangedProperties(this Type type, HashSet<Type>? visitedTypes = null)
+    public static IEnumerable<INotifyPropertyChanged> BindableDescendantsAndSelf(this object item)
     {
-        if (visitedTypes == null) visitedTypes = new HashSet<Type>();
-
-        if (!visitedTypes.Add(type)) yield break;
-
-        foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        if (item is INotifyPropertyChanged inpc)
         {
-            if (typeof(INotifyPropertyChanged).IsAssignableFrom(property.PropertyType))
+            yield return inpc;  // Yield the item itself if it's INPC
+        }
+        foreach (var pi in item.GetType()
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(pi =>
+                typeof(INotifyPropertyChanged).IsAssignableFrom(pi.PropertyType) &&
+                pi.CanRead &&
+                pi.GetMethod?.IsStatic != true &&
+                pi.GetIndexParameters().Length == 0))
+        {
+            if (pi.GetValue(item) is INotifyPropertyChanged childINPC)
             {
-                yield return property;
-            }
-            foreach (var childProperty in property.PropertyType.GetINotifyPropertyChangedProperties(visitedTypes))
-            {
-                yield return childProperty;
+                foreach (var descendant in childINPC.BindableDescendantsAndSelf())
+                {
+                    yield return descendant;
+                }
             }
         }
     }
