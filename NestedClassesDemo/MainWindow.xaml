@@ -87,6 +87,13 @@
                     <DataGridTemplateColumn.CellEditingTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal">
+                                <Label
+                                    VerticalContentAlignment="Center" 
+                                    Padding="10,1"
+                                    Content="{Binding C.Name}"
+                                    Background="LightBlue"
+                                    Foreground="#222222"
+                                    Width="100"/>
                                 <TextBlock
                                     Padding="10"
                                     Text="Cost" 

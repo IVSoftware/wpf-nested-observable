@@ -39,15 +39,11 @@ class MainWindowViewModel : INotifyPropertyChanged
     {
         BCollection.PropertyChanged += (sender, e) =>
         {
-            if(e is ObservableBindablePropertyChangedEventArgs ePlus)
+            switch (e.PropertyName)
             {
-                switch (e.PropertyName)
-                {
-                    case nameof(ClassC.Cost):
-                        SumOfBCost = BCollection.Sum(_ => _.C.Cost);
-
-                        break;
-                }
+                case nameof(ClassC.Cost):
+                    SumOfBCost = BCollection.Sum(_ => _.C?.Cost ?? 0);
+                    break;
             }
         };
     }
@@ -152,10 +148,26 @@ public class ObservableBindableCollection<T> : ObservableCollection<T>, INotifyP
         if(e is ObservableBindablePropertyChangedEventArgs ePlus)
         {             
             if( ePlus.ChangedItem?.GetType() is { } type &&
-                type.GetProperty(e.PropertyName) is { } pi &&
+                type.GetProperty(ePlus.PropertyName) is { } pi &&
                 typeof(INotifyPropertyChanged).IsAssignableFrom(pi.PropertyType))
             {
-
+                if(pi.GetValue(ePlus.ChangedItem) is { } inpc)
+                {
+                    HashSet<object> visited = new();
+                    foreach (var bindableInstance in inpc.BindableDescendantsAndSelf())
+                    {
+                        if (visited.Add(bindableInstance))
+                        {
+                            bindableInstance.PropertyChanged -= OnItemPropertyChanged;
+                            bindableInstance.PropertyChanged += OnItemPropertyChanged;
+                        }
+                        // Refresh
+                        foreach(var piRefresh in inpc.GetType().GetProperties().Where(_=>_.CanRead))
+                        {
+                            OnPropertyChanged(new PropertyChangedEventArgs(piRefresh.Name));
+                        }
+                    }
+                }
             }
         }
         base.OnPropertyChanged(e);
