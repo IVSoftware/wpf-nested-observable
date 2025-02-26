@@ -137,6 +137,20 @@ public class ObservableBindableCollection<T> : ObservableCollection<T>, INotifyP
     }
     public virtual void OnItemPropertyChanged(object? changedItem, PropertyChangedEventArgs e)
         => OnPropertyChanged(new ObservableBindablePropertyChangedEventArgs(e.PropertyName, changedItem));
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        if(e is ObservableBindablePropertyChangedEventArgs ePlus)
+        {             
+            if( ePlus.ChangedItem?.GetType() is { } type &&
+                type.GetProperty(e.PropertyName) is { } pi &&
+                typeof(INotifyPropertyChanged).IsAssignableFrom(pi.PropertyType))
+            {
+
+            }
+        }
+        base.OnPropertyChanged(e);
+    }
 }
 public class ObservableBindablePropertyChangedEventArgs : PropertyChangedEventArgs
 {
