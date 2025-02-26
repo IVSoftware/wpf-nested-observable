@@ -125,15 +125,14 @@ public class ObservableBindableCollection<T> : ObservableCollection<T>, INotifyP
 
     protected override void ClearItems()
     {
-        base.ClearItems();
         foreach (var item in this)
         {
             if (item is INotifyPropertyChanged bindable)
             {
                 bindable.PropertyChanged -= OnItemPropertyChanged;
             }
-            base.ClearItems();
         }
+        base.ClearItems();
     }
     public new event PropertyChangedEventHandler? PropertyChanged
     {
@@ -185,7 +184,6 @@ public class ObservableBindablePropertyChangedEventArgs : PropertyChangedEventAr
             : null;
     public INotifyPropertyChanged? ChangedItem { get; }
 }
-
 public static class Extensions
 {
     public static IEnumerable<INotifyPropertyChanged> BindableDescendantsAndSelf(this object item)
