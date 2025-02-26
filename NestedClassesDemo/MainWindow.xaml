@@ -11,10 +11,26 @@
         <local:MainWindowViewModel/>
     </Window.DataContext>
     <StackPanel Orientation="Vertical">
-        <StackPanel Orientation="Horizontal" Margin="10"> 
-            <Label Content="Sum Of B Cost" Height="35" Background="AliceBlue"/>
-            <Label Content="{Binding SumOfBCost}" Height="35" Background="AliceBlue"/>
-        </StackPanel>
+        <Grid Margin="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <Label Content="Sum Of B Cost" Height="35" Background="AliceBlue" Grid.Column="0"/>
+            <Label Content="{Binding SumOfBCost}" Height="35" Background="AliceBlue" Grid.Column="1"/>
+            <Button
+                Content="Replace C Objects"
+                Padding ="10, 0"
+                Height="35"
+                Background="LightGreen"
+                Foreground="#222222" 
+                Grid.Column="3" 
+                Click="OnTestReplaceCObjects"/>
+        </Grid>
+
         <DataGrid 
             Name="dataGridClassC"
             AutoGenerateColumns="False"
@@ -34,6 +50,13 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal">
+                                <Label
+                                    VerticalContentAlignment="Center" 
+                                    Padding="10,1"
+                                    Content="{Binding C.Name}"
+                                    Background="LightBlue"
+                                    Foreground="#222222"
+                                    Width="100"/>
                                 <TextBlock
                                     Padding="10"
                                     Text="Cost" 

@@ -23,6 +23,15 @@ public partial class MainWindow : Window
             }
         };
     }
+    private void OnTestReplaceCObjects(object sender, RoutedEventArgs e)
+    {
+        int replaceIndex = 1;
+        foreach(ClassB classB in DataContext.BCollection)
+        {
+            classB.C = new ClassC { Name = $"Replace C{replaceIndex++}" };
+        }
+    }
+    new MainWindowViewModel DataContext => (MainWindowViewModel)base.DataContext;
 }
 class MainWindowViewModel : INotifyPropertyChanged
 {
