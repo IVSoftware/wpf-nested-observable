@@ -144,17 +144,11 @@ public class ObservableBindablePropertyChangedEventArgs : PropertyChangedEventAr
         string? propertyName,
         object? changedItem
         ) : base(propertyName)
-    {
-        ChangedItem =
+        => ChangedItem =
             (changedItem is INotifyPropertyChanged bindable)
             ? bindable
             : null;
-        OriginalSenders.Add(changedItem);
-    }
     public INotifyPropertyChanged? ChangedItem { get; }
-
-    // The original sender is at the top of this list.
-    public List<object?> OriginalSenders { get; } = new ();
 }
 
 public static class Extensions
