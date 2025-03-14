@@ -134,11 +134,13 @@ public class ObservableBindableCollection<T> : ObservableCollection<T>, INotifyP
         }
         base.ClearItems();
     }
+
     public new event PropertyChangedEventHandler? PropertyChanged
     {
         add => base.PropertyChanged += value;
         remove => base.PropertyChanged -= value;
     }
+
     public virtual void OnItemPropertyChanged(object? changedItem, PropertyChangedEventArgs e)
         => OnPropertyChanged(new ObservableBindablePropertyChangedEventArgs(e.PropertyName, changedItem));
 
