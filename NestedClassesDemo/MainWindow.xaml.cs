@@ -1,8 +1,7 @@
-﻿using NestedClassesDemo.Classes;
+﻿using IVSoftware.Portable.Xml.Linq.XBoundObject.Modeling;
+using NestedClassesDemo.Classes;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -23,12 +22,14 @@ public partial class MainWindow : Window
             }
         };
     }
+    /// <summary>
+    /// Replace the C objects and make sure the new ones are still responsive.
+    /// </summary>
     private void OnTestReplaceCObjects(object sender, RoutedEventArgs e)
     {
-        int replaceIndex = 1;
         foreach(ClassB classB in DataContext.BCollection)
         {
-            classB.C = new ClassC { Name = $"Replace C{replaceIndex++}" };
+            classB.C = new ClassC { Name = classB.C?.Name?.Replace("Item C", "Replace C") ?? "Error" };
         }
     }
     new MainWindowViewModel DataContext => (MainWindowViewModel)base.DataContext;
@@ -37,23 +38,29 @@ class MainWindowViewModel : INotifyPropertyChanged
 {
     public MainWindowViewModel() 
     {
-        BCollection.PropertyChanged += (sender, e) =>
+        BCollection = new ObservableCollection<ClassB>
         {
-            switch (e.PropertyName)
-            {
-                case nameof(ClassC.Cost):
-                    SumOfBCost = BCollection.Sum(_ => _.C?.Cost ?? 0);
-                    break;
-            }
-        };
+            new ClassB{C = new ClassC{Name = $"Item C{_autoIncrement++}"} },
+            new ClassB{C = new ClassC{Name = $"Item C{_autoIncrement++}"} },
+            new ClassB{C = new ClassC{Name = $"Item C{_autoIncrement++}"} },
+        }.WithNotifyOnDescendants(OnPropertyChanged);
     }
-    static int _autoIncrement = 1;
-    public ObservableBindableCollection<ClassB> BCollection{ get; } = new ObservableBindableCollection<ClassB>
+    public ObservableCollection<ClassB> BCollection { get; }
+
+    private void OnPropertyChanged(object sender, PropertyChangedEventArgs e)
     {
-        new ClassB{C = new ClassC{Name = $"Item C{_autoIncrement++}"} },
-        new ClassB{C = new ClassC{Name = $"Item C{_autoIncrement++}"} },
-        new ClassB{C = new ClassC{Name = $"Item C{_autoIncrement++}"} },
-    };
+        switch (e.PropertyName)
+        {
+            case nameof(ClassC.Cost):
+            case nameof(ClassB.C):
+                SumOfBCost = BCollection.Sum(_ => _.C?.Cost ?? 0);
+                break;
+            default:
+                break;
+        }
+    }
+
+    static int _autoIncrement = 1;
 
     public int SumOfBCost
     {
@@ -71,142 +78,4 @@ class MainWindowViewModel : INotifyPropertyChanged
     protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     public event PropertyChangedEventHandler? PropertyChanged;
-}
-public class ObservableBindableCollection<T> : ObservableCollection<T>, INotifyPropertyChanged
-{
-    protected override void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
-    {
-        base.OnCollectionChanged(e);
-        switch (e.Action)
-        {
-            case NotifyCollectionChangedAction.Add:
-                if (e.NewItems != null)
-                {
-                    HashSet<object> visited = new();
-                    foreach (var item in e.NewItems.OfType<INotifyPropertyChanged>())
-                    {
-                        foreach (var bindableInstance in item.BindableDescendantsAndSelf())
-                        {
-                            if(visited.Add(bindableInstance))
-                            {
-                                bindableInstance.PropertyChanged -= OnItemPropertyChanged;
-                                bindableInstance.PropertyChanged += OnItemPropertyChanged;
-                            }
-                            else
-                            {   /* G T K */
-                                // e.g. A property that returns 'this'
-                            }
-                        }
-                    }
-                }
-                break;
-            case NotifyCollectionChangedAction.Remove:
-                if (e.OldItems != null)
-                {
-                    HashSet<object> visited = new();
-                    foreach (var item in e.OldItems.OfType<INotifyPropertyChanged>())
-                    {
-                        foreach (var bindableInstance in item.BindableDescendantsAndSelf())
-                        {
-                            if (visited.Add(bindableInstance))
-                            {
-                                bindableInstance.PropertyChanged -= OnItemPropertyChanged;
-                            }
-                            else
-                            {   /* G T K */
-                                // e.g. A property that returns 'this'
-                            }
-                        }
-                    }
-                }
-                break;
-        }
-    }
-
-    protected override void ClearItems()
-    {
-        foreach (var item in this)
-        {
-            if (item is INotifyPropertyChanged bindable)
-            {
-                bindable.PropertyChanged -= OnItemPropertyChanged;
-            }
-        }
-        base.ClearItems();
-    }
-    public new event PropertyChangedEventHandler? PropertyChanged
-    {
-        add => base.PropertyChanged += value;
-        remove => base.PropertyChanged -= value;
-    }
-    public virtual void OnItemPropertyChanged(object? changedItem, PropertyChangedEventArgs e)
-        => OnPropertyChanged(new ObservableBindablePropertyChangedEventArgs(e.PropertyName, changedItem));
-
-    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
-    {
-        if(e is ObservableBindablePropertyChangedEventArgs ePlus)
-        {             
-            if( ePlus.ChangedItem?.GetType() is { } type &&
-                type.GetProperty(ePlus.PropertyName) is { } pi &&
-                typeof(INotifyPropertyChanged).IsAssignableFrom(pi.PropertyType))
-            {
-                if(pi.GetValue(ePlus.ChangedItem) is { } inpc)
-                {
-                    HashSet<object> visited = new();
-                    foreach (var bindableInstance in inpc.BindableDescendantsAndSelf())
-                    {
-                        if (visited.Add(bindableInstance))
-                        {
-                            bindableInstance.PropertyChanged -= OnItemPropertyChanged;
-                            bindableInstance.PropertyChanged += OnItemPropertyChanged;
-                        }
-                        // Refresh
-                        foreach(var piRefresh in inpc.GetType().GetProperties().Where(_=>_.CanRead))
-                        {
-                            OnPropertyChanged(new PropertyChangedEventArgs(piRefresh.Name));
-                        }
-                    }
-                }
-            }
-        }
-        base.OnPropertyChanged(e);
-    }
-}
-public class ObservableBindablePropertyChangedEventArgs : PropertyChangedEventArgs
-{
-    public ObservableBindablePropertyChangedEventArgs(
-        string? propertyName,
-        object? changedItem
-        ) : base(propertyName)
-        => ChangedItem =
-            (changedItem is INotifyPropertyChanged bindable)
-            ? bindable
-            : null;
-    public INotifyPropertyChanged? ChangedItem { get; }
-}
-public static class Extensions
-{
-    public static IEnumerable<INotifyPropertyChanged> BindableDescendantsAndSelf(this object item)
-    {
-        if (item is INotifyPropertyChanged inpc)
-        {
-            yield return inpc;  // Yield the item itself if it's INPC
-        }
-        foreach (var pi in item.GetType()
-            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(pi =>
-                typeof(INotifyPropertyChanged).IsAssignableFrom(pi.PropertyType) &&
-                pi.CanRead &&
-                pi.GetMethod?.IsStatic != true &&
-                pi.GetIndexParameters().Length == 0))
-        {
-            if (pi.GetValue(item) is INotifyPropertyChanged childINPC)
-            {
-                foreach (var descendant in childINPC.BindableDescendantsAndSelf())
-                {
-                    yield return descendant;
-                }
-            }
-        }
-    }
 }
