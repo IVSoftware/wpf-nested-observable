@@ -8,7 +8,7 @@
         Title="Main Window" Height="300" Width="500"
         FontSize="16">
     <Window.DataContext>
-        <local:MainWindowViewModel/>
+        <local:ClassA/>
     </Window.DataContext>
     <StackPanel Orientation="Vertical">
         <Grid Margin="10">

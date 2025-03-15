@@ -32,11 +32,11 @@ public partial class MainWindow : Window
             classB.C = new ClassC { Name = classB.C?.Name?.Replace("Item C", "Replace C") ?? "Error" };
         }
     }
-    new MainWindowViewModel DataContext => (MainWindowViewModel)base.DataContext;
+    new ClassA DataContext => (ClassA)base.DataContext;
 }
-class MainWindowViewModel : INotifyPropertyChanged
+class ClassA : INotifyPropertyChanged
 {
-    public MainWindowViewModel() 
+    public ClassA() 
     {
         BCollection = new ObservableCollection<ClassB>
         {
