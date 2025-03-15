@@ -64,6 +64,44 @@ class ClassA : INotifyPropertyChanged
 }
 ```
 
+___
+
+**Testing Off-List Swaps**
+
+In order to verify that `ClassA` continues to respond to new instances of `ClassC` that are swapped into `ClassB.C` we can devise this simple test.
+
+```
+public partial class MainWindow : Window
+{
+    public MainWindow()
+    {
+        InitializeComponent();
+        dataGridClassC.AutoGeneratingColumn += (sender, e) =>
+        {
+            switch (e.PropertyName)
+            {
+                case nameof(ClassC.Name):
+                    e.Column.Width = new DataGridLength(1, DataGridLengthUnitType.Star);
+                    break;
+            }
+        };
+    }
+    /// <summary>
+    /// Replace the C objects and make sure the new ones are still responsive.
+    /// </summary>
+    private void OnTestReplaceCObjects(object sender, RoutedEventArgs e)
+    {
+        foreach(ClassB classB in DataContext.BCollection)
+        {
+            classB.C = new ClassC { Name = classB.C?.Name?.Replace("Item C", "Replace C") ?? "Error" };
+        }
+    }
+    new ClassA DataContext => (ClassA)base.DataContext;
+}
+```
+
+
+
 [![screenshot][1]][1]
 
 
