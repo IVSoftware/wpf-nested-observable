@@ -1,235 +1,74 @@
-After staring at your question _a lot_, I think I've finally wrapped my head around how you want the recursion to work. So as I understand it we have `ClassC` which implements `INotifyProertyChanged` and the goal is that when `ClassB` instantiates it, it doesn't have to do anything at all in terms of bubbling property changed events up from members.
+Since your tag is WPF, I wanted to offer a more robust solution that will tolerate changes to the `C` property in `ClassB` as well as certain edge cases that would break or limit the scheme you show.
 
-At the same time, if the `C` property is _changed_ as in replaced in sitio with a new instance, all that recursive binding that we initially set up will now break unless we run discovery again on the replacement object. This is the reason for making the `C` property itself a bindable instance.
+- A deeply nested class that has a non-INPC class as its parent.
+- A property that is declared as `object` that later is assigned to an instance that implements INPC.
+- A property that is intended to lazy initialize as a singleton, that would be inadvertently activated by the discovery shown.
+- Nested properties that are themselves of type `ObservableCollection<T>`
+
+___
+
+As an alternative to subclassing `ObservableCollection<T>`, the snippet below (and the GitHub [repo that I used to test this answer]()) employs the `WithNotifyOnDescendants(...)` extension that is a part of the [XBoundObject NuGet package](https://www.nuget.org/packages/IVSoftware.Portable.Xml.Linq.XBoundObject) whose source code can be found [here](https://github.com/IVSoftware/IVSoftware.Portable.Xml.Linq.XBoundObject.git).
+
+Here, the aggregated traffic of all nested `INotifyPropertyChanged` descendants is routed to the designated `PropertyChangedEventHandler` delegate. Note that for the calculation of `SumOfBCost`, we not only have to respond to changes of the value of `C.Cost`, there is also a case where the `ClassB.C` is replaced by a different instance of `ClassC`. This scenario might be contributing to the problems you're describing, because this swap doesn't change the _collection_ of `ClassB` items. Therefore, trying to handle this scenario by responding to `NotifyCollectionChangedAction.Replace` isn't going to work.
 
 ```
-class ClassB : INotifyPropertyChanged
+
+using IVSoftware.Portable.Xml.Linq.XBoundObject.Modeling;
+
+class ClassA : INotifyPropertyChanged
 {
-    /// <summary>
-    /// If C is replaced, then any new instance and
-    /// its descendants will need to be rediscovered.
-    /// </summary>
-    public ClassC? C
+    public ClassA() 
     {
-        get => _c;
+        BCollection = new ObservableCollection<ClassB>
+        {
+            new ClassB{C = new ClassC{Name = $"Item C{_autoIncrement++}"} },
+            new ClassB{C = new ClassC{Name = $"Item C{_autoIncrement++}"} },
+            new ClassB{C = new ClassC{Name = $"Item C{_autoIncrement++}"} },
+        }.WithNotifyOnDescendants(OnPropertyChanged);
+    }
+    public ObservableCollection<ClassB> BCollection { get; }
+
+    private void OnPropertyChanged(object sender, PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(ClassC.Cost):
+            case nameof(ClassB.C):
+                SumOfBCost = BCollection.Sum(_ => _.C?.Cost ?? 0);
+                break;
+            default:
+                break;
+        }
+    }
+
+    static int _autoIncrement = 1;
+
+    public int SumOfBCost
+    {
+        get => _sumOfBCost;
         set
         {
-            if (!Equals(_c, value))
+            if (!Equals(_sumOfBCost, value))
             {
-                _c = value;
+                _sumOfBCost = value;
                 OnPropertyChanged();
             }
         }
     }
-    ClassC? _c = null;
-
+    int _sumOfBCost = default;
     protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     public event PropertyChangedEventHandler? PropertyChanged;
 }
 ```
 
-___
+The WPF sample in the [linked repo]() includes a button to replace the `ClassC` instances with new ones, to verify that the `INotifyPropertyChanged` is still subscribed with the new instances. As far as the critical element of testing is concerned, if you browse the repo for [XBoundObject](https://github.com/IVSoftware/IVSoftware.Portable.Xml.Linq.XBoundObject.git) you will see an `MSTest` project with more than a dozen detailed tests that ensure its reliable operation.
 
-**Enumerator**
 
-This means that we need an enumerator extension for Type to get INPC implementers for self and all descendents resursively.
 
-```
-public static class Extensions
-{
-    public static IEnumerable<INotifyPropertyChanged> BindableDescendantsAndSelf(this object item)
-    {
-        if (item is INotifyPropertyChanged inpc)
-        {
-            yield return inpc;  // Yield the item itself if it's INPC
-        }
-        foreach (var pi in item.GetType()
-            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(pi =>
-                typeof(INotifyPropertyChanged).IsAssignableFrom(pi.PropertyType) &&
-                pi.CanRead &&
-                pi.GetMethod?.IsStatic != true &&
-                pi.GetIndexParameters().Length == 0))
-        {
-            if (pi.GetValue(item) is INotifyPropertyChanged childINPC)
-            {
-                foreach (var descendant in childINPC.BindableDescendantsAndSelf())
-                {
-                    yield return descendant;
-                }
-            }
-        }
-    }
-}
-```
 
-**Respond recursively to both _initial_ and to _changed_ instanced of INPC properties.**
 
-```
-public class ObservableBindableCollection<T> : ObservableCollection<T>, INotifyPropertyChanged
-{
-    protected override void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
-    {
-        base.OnCollectionChanged(e);
-        switch (e.Action)
-        {
-            case NotifyCollectionChangedAction.Add:
-                if (e.NewItems != null)
-                {
-                    HashSet<object> visited = new();
-                    foreach (var item in e.NewItems.OfType<INotifyPropertyChanged>())
-                    {
-                        foreach (var bindableInstance in item.BindableDescendantsAndSelf())
-                        {
-                            if(visited.Add(bindableInstance))
-                            {
-                                bindableInstance.PropertyChanged -= OnItemPropertyChanged;
-                                bindableInstance.PropertyChanged += OnItemPropertyChanged;
-                            }
-                            else
-                            {   /* G T K */
-                                // e.g. A property that returns 'this'
-                            }
-                        }
-                    }
-                }
-                break;
-            case NotifyCollectionChangedAction.Remove:
-                if (e.OldItems != null)
-                {
-                    HashSet<object> visited = new();
-                    foreach (var item in e.OldItems.OfType<INotifyPropertyChanged>())
-                    {
-                        foreach (var bindableInstance in item.BindableDescendantsAndSelf())
-                        {
-                            if (visited.Add(bindableInstance))
-                            {
-                                bindableInstance.PropertyChanged -= OnItemPropertyChanged;
-                            }
-                            else
-                            {   /* G T K */
-                                // e.g. A property that returns 'this'
-                            }
-                        }
-                    }
-                }
-                break;
-        }
-    }
-
-    protected override void ClearItems()
-    {
-        foreach (var item in this)
-        {
-            if (item is INotifyPropertyChanged bindable)
-            {
-                bindable.PropertyChanged -= OnItemPropertyChanged;
-            }
-        }
-        base.ClearItems();
-    }
-
-    public new event PropertyChangedEventHandler? PropertyChanged
-    {
-        add => base.PropertyChanged += value;
-        remove => base.PropertyChanged -= value;
-    }
-    public virtual void OnItemPropertyChanged(object? changedItem, PropertyChangedEventArgs e)
-        => OnPropertyChanged(new ObservableBindablePropertyChangedEventArgs(e.PropertyName, changedItem));
-
-    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
-    {
-        if(e is ObservableBindablePropertyChangedEventArgs ePlus)
-        {             
-            if( ePlus.ChangedItem?.GetType() is { } type &&
-                type.GetProperty(ePlus.PropertyName) is { } pi &&
-                typeof(INotifyPropertyChanged).IsAssignableFrom(pi.PropertyType))
-            {
-                if(pi.GetValue(ePlus.ChangedItem) is { } inpc)
-                {
-                    HashSet<object> visited = new();
-                    foreach (var bindableInstance in inpc.BindableDescendantsAndSelf())
-                    {
-                        if (visited.Add(bindableInstance))
-                        {
-                            bindableInstance.PropertyChanged -= OnItemPropertyChanged;
-                            bindableInstance.PropertyChanged += OnItemPropertyChanged;
-                        }
-                        // Refresh
-                        foreach(var piRefresh in inpc.GetType().GetProperties().Where(_=>_.CanRead))
-                        {
-                            OnPropertyChanged(new PropertyChangedEventArgs(piRefresh.Name));
-                        }
-                    }
-                }
-            }
-        }
-        base.OnPropertyChanged(e);
-    }
-}
-public class ObservableBindablePropertyChangedEventArgs : PropertyChangedEventArgs
-{
-    public ObservableBindablePropertyChangedEventArgs(
-        string? propertyName,
-        object? changedItem
-        ) : base(propertyName)
-        => ChangedItem =
-            (changedItem is INotifyPropertyChanged bindable)
-            ? bindable
-            : null;
-    public INotifyPropertyChanged? ChangedItem { get; }
-}
-```
-___
-
-**USAGE**
-
-Now use as intended.
-
-```
-public class ClassA
-{
-    public ObservableBindableCollection<ClassB> BCollection{ get; } = new ();
-    public ClassA() 
-    {
-        BCollection.PropertyChanged += (sender, e) =>
-        {
-            switch (e.PropertyName)
-            {
-                case nameof(ClassC.Cost):
-                    SumOfBCost = BCollection.Sum(_ => _.C?.Cost ?? 0);
-                    break;
-            }
-        };
-    }
-}
-```
 [![screenshot][1]][1]
-___
-
-**NOTES**
-
-`ObservableCollection` already has a `PropertyChanged` event, but for some very good reasons it's not `public`. What this version does is elevate that to a public property, and fire a derived event with information about the property instance of the collection whose property changed event is being responded to. If that info is of interest, then handle in in this manner instead;
-
-___
-
-```
-BCollection.PropertyChanged += (sender, e) =>
-{
-    switch (e.PropertyName)
-    {
-        case nameof(ClassC.Cost):
-            SumOfBCost = BCollection.Sum(_ => _.C?.Cost ?? 0);
-
-            if(e is ObservableBindablePropertyChangedEventArgs ePlus)
-            {
-                // Obtain more information about the property instance.
-            }
-            break;
-    }
-};
-```
 
 
   [1]: https://i.sstatic.net/65g1zRRB.png
