@@ -1,14 +1,9 @@
-So as I understand it your example states:
+Since your tag is WPF, I wanted to offer a more robust solution that will tolerate changes to the `C` property in `ClassB` as well as certain edge cases that would break or limit the scheme you show.
 
-- The `BCollection` contains items of `ClassB`.
-- `ClassB` has a member named `C` that is a `ClassC`.
-- `ClassC` implements `INotifyPropertyChanged` and in particular will raise this event when `C.Cost` changes.
-
-And finally, we have `ClassA` which contains the `BCollection` and has a `SumOfBCost` that should be updated whenever:
-
-1. `C.Cost` changes
-2. `ClassB.C` instance is replaced with a new instance of `ClassC`. (Note that this is 'not' a collection changed event when this occurs!)
-3. `BCollection` undergoes changes of `ClassB` items that are added, removed or replaced. (All of which _are_ collection changed events!)
+- A deeply nested class that has a non-INPC class as its parent.
+- A property that is declared as `object` that later is assigned to an instance that implements INPC.
+- A property that is intended to lazy initialize as a singleton, that would be inadvertently activated by the discovery shown.
+- Nested properties that are themselves of type `ObservableCollection<T>`
 
 ___
 
@@ -17,6 +12,9 @@ As an alternative to subclassing `ObservableCollection<T>`, the snippet below (a
 Here, the aggregated traffic of all nested `INotifyPropertyChanged` descendants is routed to the designated `PropertyChangedEventHandler` delegate. Note that for the calculation of `SumOfBCost`, we not only have to respond to changes of the value of `C.Cost`, there is also a case where the `ClassB.C` is replaced by a different instance of `ClassC`. This scenario might be contributing to the problems you're describing, because this swap doesn't change the _collection_ of `ClassB` items. Therefore, trying to handle this scenario by responding to `NotifyCollectionChangedAction.Replace` isn't going to work.
 
 ```
+
+using IVSoftware.Portable.Xml.Linq.XBoundObject.Modeling;
+
 class ClassA : INotifyPropertyChanged
 {
     public ClassA() 
@@ -64,79 +62,9 @@ class ClassA : INotifyPropertyChanged
 }
 ```
 
-___
+The WPF sample in the [linked repo]() includes a button to replace the `ClassC` instances with new ones, to verify that the `INotifyPropertyChanged` is still subscribed with the new instances. As far as the critical element of testing is concerned, if you browse the repo for [XBoundObject](https://github.com/IVSoftware/IVSoftware.Portable.Xml.Linq.XBoundObject.git) you will see an `MSTest` project with more than a dozen detailed tests that ensure its reliable operation.
 
-**Testing Off-List Swaps**
 
-In order to verify that `ClassA` continues to respond to new instances of `ClassC` that are swapped into `ClassB.C` we can devise this simple test.
-
-```
-public partial class MainWindow : Window
-{
-    public MainWindow()
-    {
-        InitializeComponent();
-        dataGridClassC.AutoGeneratingColumn += (sender, e) =>
-        {
-            switch (e.PropertyName)
-            {
-                case nameof(ClassC.Name):
-                    e.Column.Width = new DataGridLength(1, DataGridLengthUnitType.Star);
-                    break;
-            }
-        };
-    }
-    /// <summary>
-    /// Replace the C objects and make sure the new ones are still responsive.
-    /// </summary>
-    private void OnTestReplaceCObjects(object sender, RoutedEventArgs e)
-    {
-        foreach(ClassB classB in DataContext.BCollection)
-        {
-            classB.C = new ClassC { Name = classB.C?.Name?.Replace("Item C", "Replace C") ?? "Error" };
-        }
-    }
-    new ClassA DataContext => (ClassA)base.DataContext;
-}
-```
-
-___
-
-**Under the Hood**
-
-When the `WithNotifyOnDescendants(...)` extension is run on a collection or class instance, it creates a dynamic XML model where instances and handlers are bound to the same `XElement`. To view the model, use this overload instead and view `model.ToString()`.
-
-```
-BCollection = new ObservableCollection<ClassB>().WithNotifyOnDescendants(out XElement model, OnPropertyChanged);
-```
-___
-
-```xml
-<model name="(Origin)ObservableCollection" instance="[ObservableCollection]" onpc="[OnPC]" context="[ModelingContext]">
-  <member name="Count" />
-  <model name="(Origin)ClassB" instance="[ClassB]" onpc="[OnPC]">
-    <member name="C" instance="[ClassC]" onpc="[OnPC]">
-      <member name="Name" />
-      <member name="Cost" />
-      <member name="Currency" />
-    </member>
-  </model>
-  <model name="(Origin)ClassB" instance="[ClassB]" onpc="[OnPC]">
-    <member name="C" instance="[ClassC]" onpc="[OnPC]">
-      <member name="Name" />
-      <member name="Cost" />
-      <member name="Currency" />
-    </member>
-  </model>
-  <model name="(Origin)ClassB" instance="[ClassB]" onpc="[OnPC]">
-    <member name="C" instance="[ClassC]" onpc="[OnPC]">
-      <member name="Name" />
-      <member name="Cost" />
-      <member name="Currency" />
-    </member>
-  </model>
-</model>
-```
 
 
 
