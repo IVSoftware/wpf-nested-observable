@@ -5,7 +5,7 @@ Since your tag is WPF, I wanted to offer a more robust UI-based example that wil
 - A property that is intended to lazy initialize as a singleton, that would be inadvertently activated by the discovery shown.
 - Nested properties that are themselves of type `ObservableCollection<T>`
 
-This would be an alternative to subclassing `ObservableCollection<T>`. In other words, `FullyObservableCollection<T>` is no longer required. This solution employs a lightweight NuGet package for [XBoundObject](https://www.nuget.org/packages/IVSoftware.Portable.Xml.Linq.XBoundObject). But even if you decide to code this yourself, consider browsing the [source code](https://github.com/IVSoftware/IVSoftware.Portable.Xml.Linq.XBoundObject.git) to see how it performs the resursive discovery and keeps track of subscriptions to `PropertyChanged` delegates.
+This would be an alternative to subclassing `ObservableCollection<T>`. In other words, `FullyObservableCollection<T>` is no longer required. The code below employs a lightweight NuGet package for [XBoundObject](https://www.nuget.org/packages/IVSoftware.Portable.Xml.Linq.XBoundObject). But even if you decide to code this yourself, consider browsing the [source code](https://github.com/IVSoftware/IVSoftware.Portable.Xml.Linq.XBoundObject.git) for the NuGet to see how it performs the resursive discovery and keeps track of subscriptions to `PropertyChanged` delegates.
 
 `<PackageReference Include="IVSoftware.Portable.Xml.Linq.XBoundObject" Version="1.3.0" />`
 
