@@ -103,6 +103,8 @@ For debugging, the `model` can be inspected in a Text Viewer or XML Viewer at an
 ```
 ___
 
+##### Subscriptions and Unsubscriptions
+
 The instance and the subscribed `PropertyChangedEventHandler` are registered on the same model node.
 
 `<member name="C" pi="[ClassC]" instance="[ClassC]" onpc="[OnPC]">`
