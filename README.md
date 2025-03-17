@@ -5,14 +5,17 @@ Since your tag is WPF, I wanted to offer a more robust solution that will tolera
 - A property that is intended to lazy initialize as a singleton, that would be inadvertently activated by the discovery shown.
 - Nested properties that are themselves of type `ObservableCollection<T>`
 
+This would be an alternative to subclassing `ObservableCollection<T>`. In other words, `FullyObservableCollection<T>` is no longer required. This solution employs a lightweight NuGet package for [XBoundObject](https://www.nuget.org/packages/IVSoftware.Portable.Xml.Linq.XBoundObject). But even if you decide to code this yourself, consider browsing the [source code](https://github.com/IVSoftware/IVSoftware.Portable.Xml.Linq.XBoundObject.git) to see how it performs the resursive discovery and keeps track of subscriptions to `PropertyChanged` delegates.
+
+`<PackageReference Include="IVSoftware.Portable.Xml.Linq.XBoundObject" Version="1.3.0" />`
+
 ___
 
-As an alternative to subclassing `ObservableCollection<T>`, the snippet below (and the GitHub [repo that I used to test this answer](https://github.com/IVSoftware/wpf-nested-observable.git)) employs the `WithNotifyOnDescendants(...)` extension that is a part of the [XBoundObject NuGet package](https://www.nuget.org/packages/IVSoftware.Portable.Xml.Linq.XBoundObject) whose source code can be found [here](https://github.com/IVSoftware/IVSoftware.Portable.Xml.Linq.XBoundObject.git).
+**Handling the Nested Property Changes**
 
-Here, the aggregated traffic of all nested `INotifyPropertyChanged` descendants is routed to the designated `PropertyChangedEventHandler` delegate. Note that for the calculation of `SumOfBCost`, we not only have to respond to changes of the value of `C.Cost`, there is also a case where the `ClassB.C` is replaced by a different instance of `ClassC`. This scenario might be contributing to the problems you're describing, because this swap doesn't change the _collection_ of `ClassB` items. Therefore, trying to handle this scenario by responding to `NotifyCollectionChangedAction.Replace` isn't going to work.
+In the snippet below, the aggregated traffic of all nested `INotifyPropertyChanged` descendants is routed to the designated `PropertyChangedEventHandler` delegate. Note that for the calculation of `SumOfBCost`, we not only have to respond to changes of the value of `C.Cost`, there is also a case where the `ClassB.C` is replaced by a different instance of `ClassC`. This scenario might be contributing to the problems you're describing, because this swap doesn't change the _collection_ of `ClassB` items. Therefore, trying to handle this scenario by responding to `NotifyCollectionChangedAction.Replace` isn't going to work.
 
 ```
- <PackageReference Include="IVSoftware.Portable.Xml.Linq.XBoundObject" Version="1.3.0" />
 using IVSoftware.Portable.Xml.Linq.XBoundObject.Modeling;
 
 class ClassA : INotifyPropertyChanged
@@ -63,7 +66,6 @@ class ClassA : INotifyPropertyChanged
 ```
 
 The WPF sample in the [linked repo](https://github.com/IVSoftware/wpf-nested-observable.git) includes a button to replace the `ClassC` instances with new ones, to verify that the `INotifyPropertyChanged` is still subscribed with the new instances. As far as the critical element of testing is concerned, if you browse the repo for `XBoundObject` you'll see an `MSTest` project with more than a dozen detailed tests that ensure its reliable operation. [TestClass_Modeling.cs](https://github.com/IVSoftware/IVSoftware.Portable.Xml.Linq.XBoundObject/blob/master/MSTestProject/TestClass_Modeling.cs)
-
 
 ___
 
