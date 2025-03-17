@@ -62,7 +62,7 @@ class ClassA : INotifyPropertyChanged
 }
 ```
 
-The WPF sample in the [linked repo](https://github.com/IVSoftware/wpf-nested-observable.git) includes a button to replace the `ClassC` instances with new ones, to verify that the `INotifyPropertyChanged` is still subscribed with the new instances. As far as the critical element of testing is concerned, if you browse the repo for [XBoundObject](https://github.com/IVSoftware/IVSoftware.Portable.Xml.Linq.XBoundObject.git) you will see an `MSTest` project with more than a dozen detailed tests that ensure its reliable operation.
+The WPF sample in the [linked repo](https://github.com/IVSoftware/wpf-nested-observable.git) includes a button to replace the `ClassC` instances with new ones, to verify that the `INotifyPropertyChanged` is still subscribed with the new instances. As far as the critical element of testing is concerned, if you browse the repo for `XBoundObject` you'll see an `MSTest` project with more than a dozen detailed tests that ensure its reliable operation. [TestClass_Modeling.cs](https://github.com/IVSoftware/IVSoftware.Portable.Xml.Linq.XBoundObject/blob/master/MSTestProject/TestClass_Modeling.cs0)
 
 
 ___
