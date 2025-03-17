@@ -2,9 +2,11 @@
 using NestedClassesDemo.Classes;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Xml.Linq;
 
 namespace NestedClassesDemo;
 public partial class MainWindow : Window
@@ -43,8 +45,14 @@ class ClassA : INotifyPropertyChanged
             new ClassB{C = new ClassC{Name = $"Item C{_autoIncrement++}"} },
             new ClassB{C = new ClassC{Name = $"Item C{_autoIncrement++}"} },
             new ClassB{C = new ClassC{Name = $"Item C{_autoIncrement++}"} },
-        }.WithNotifyOnDescendants(OnPropertyChanged);
+        }.WithNotifyOnDescendants(out XElement model, OnPropertyChanged, onXO: OnXObjectEvent);
     }
+
+    private void OnXObjectEvent(object sender, XObjectChangeEventArgs e)
+    {
+        Debug.WriteLine($"{e}" );
+    }
+
     public ObservableCollection<ClassB> BCollection { get; }
 
     private void OnPropertyChanged(object sender, PropertyChangedEventArgs e)

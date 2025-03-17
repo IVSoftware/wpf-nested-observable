@@ -100,6 +100,44 @@ public partial class MainWindow : Window
 }
 ```
 
+___
+
+**Under the Hood**
+
+When the `WithNotifyOnDescendants(...)` extension is run on a collection or class instance, it creates a dynamic XML model where instances and handlers are bound to the same `XElement`. To view the model, use this overload instead and view `model.ToString()`.
+
+```
+BCollection = new ObservableCollection<ClassB>().WithNotifyOnDescendants(out XElement model, OnPropertyChanged);
+```
+___
+
+```xml
+<model name="(Origin)ObservableCollection" instance="[ObservableCollection]" onpc="[OnPC]" context="[ModelingContext]">
+  <member name="Count" />
+  <model name="(Origin)ClassB" instance="[ClassB]" onpc="[OnPC]">
+    <member name="C" instance="[ClassC]" onpc="[OnPC]">
+      <member name="Name" />
+      <member name="Cost" />
+      <member name="Currency" />
+    </member>
+  </model>
+  <model name="(Origin)ClassB" instance="[ClassB]" onpc="[OnPC]">
+    <member name="C" instance="[ClassC]" onpc="[OnPC]">
+      <member name="Name" />
+      <member name="Cost" />
+      <member name="Currency" />
+    </member>
+  </model>
+  <model name="(Origin)ClassB" instance="[ClassB]" onpc="[OnPC]">
+    <member name="C" instance="[ClassC]" onpc="[OnPC]">
+      <member name="Name" />
+      <member name="Cost" />
+      <member name="Currency" />
+    </member>
+  </model>
+</model>
+```
+
 
 
 [![screenshot][1]][1]
