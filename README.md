@@ -1,4 +1,4 @@
-Since your tag is WPF, I wanted to offer a more robust solution that will tolerate changes to the `C` property in `ClassB` as well as certain edge cases that would break or limit the scheme you show such as:
+Since your tag is WPF, I wanted to offer a more robust solution that will tolerate changes to the `C` property in `ClassB` as well as certain edge cases that would break or limit your scheme such as:
 
 - A deeply nested class instance that _does_ implement `INotifyPropertyChanged` contained in a parent class that _doesn't_ implement `INotifyPropertyChanged`.
 - A property that is declared as `object` that later is assigned to an instance that implements INPC.
